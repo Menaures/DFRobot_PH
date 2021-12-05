@@ -10,8 +10,8 @@
  * date  2018-04
  */
 
-#ifndef _DFROBOT_PH_H_
-#define _DFROBOT_PH_H_
+#ifndef _DFROBOT_PH_SAMD21_H_
+#define _DFROBOT_PH_SAMD21_H_
 
 #if ARDUINO >= 100
 #include "Arduino.h"

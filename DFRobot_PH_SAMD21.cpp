@@ -17,11 +17,20 @@
 #include "WProgram.h"
 #endif
 
-#include "DFRobot_PH.h"
-#include <EEPROM.h>
+#include "DFRobot_PH_SAMD21.h"
 
+#ifndef __AVR__
+#ifndef EEPROM_SIZE
+#define EEPROM_SIZE PHVALUEADDR + 2 * sizeof(float)
+#include <SD.h>
+#include <SPI.h>
+#include <Eeprom_emulation.h>
+#endif
+#else
+#include <EEPROM.h>
 #define EEPROM_write(address, p) {int i = 0; byte *pp = (byte*)&(p);for(; i < sizeof(p); i++) EEPROM.write(address+i, pp[i]);}
 #define EEPROM_read(address, p)  {int i = 0; byte *pp = (byte*)&(p);for(; i < sizeof(p); i++) pp[i]=EEPROM.read(address+i);}
+#endif
 
 #define PHVALUEADDR 0x00    //the start address of the pH calibration parameters stored in the EEPROM
 
@@ -42,19 +51,31 @@ DFRobot_PH::~DFRobot_PH()
 
 void DFRobot_PH::begin()
 {
+    #ifndef __AVR__
+    SD.begin(CS_PIN);
+    // If config file doesn't exist create and initialize it with appropriate size
+    if (!SD.exists(EEPROM_EMULATION_FILE)) {
+      File eepromEmulationFile = SD.open(EEPROM_EMULATION_FILE, O_CREAT | O_WRITE);
+      byte buffer[EEPROM_SIZE] = { 0 };
+      sdWrite(0, &buffer, sizeof(buffer));
+      eepromEmulationFile.close();
+    }
+    #endif
+    
     EEPROM_read(PHVALUEADDR, this->_neutralVoltage);  //load the neutral (pH = 7.0)voltage of the pH board from the EEPROM
     Serial.print("_neutralVoltage:");
     Serial.println(this->_neutralVoltage);
-    if(EEPROM.read(PHVALUEADDR)==0xFF && EEPROM.read(PHVALUEADDR+1)==0xFF && EEPROM.read(PHVALUEADDR+2)==0xFF && EEPROM.read(PHVALUEADDR+3)==0xFF){
+
+    if ((uint32_t) this->_neutralVoltage == 0xFFFFFFFF) {
         this->_neutralVoltage = 1500.0;  // new EEPROM, write typical voltage
         EEPROM_write(PHVALUEADDR, this->_neutralVoltage);
     }
-    EEPROM_read(PHVALUEADDR+4, this->_acidVoltage);//load the acid (pH = 4.0) voltage of the pH board from the EEPROM
+    EEPROM_read(PHVALUEADDR + sizeof(float), this->_acidVoltage);//load the acid (pH = 4.0) voltage of the pH board from the EEPROM
     Serial.print("_acidVoltage:");
     Serial.println(this->_acidVoltage);
-    if(EEPROM.read(PHVALUEADDR+4)==0xFF && EEPROM.read(PHVALUEADDR+5)==0xFF && EEPROM.read(PHVALUEADDR+6)==0xFF && EEPROM.read(PHVALUEADDR+7)==0xFF){
+    if ((uint32_t) this->_acidVoltage == 0xFFFFFFFF) {
         this->_acidVoltage = 2032.44;  // new EEPROM, write typical voltage
-        EEPROM_write(PHVALUEADDR+4, this->_acidVoltage);
+        EEPROM_write(PHVALUEADDR + sizeof(float), this->_acidVoltage);
     }
 }
 
